@@ -9,8 +9,11 @@
    منظوري، ثم ترتيب العناصر حسب العمق ورسمها من الأبعد
    إلى الأقرب (خوارزمية الرسّام).
 
-   ملاحظة علمية: النماذج تخطيطية تعليمية — تُظهر البنية
-   والعلاقات بين الأجزاء، لا الأبعاد الذرية الدقيقة.
+   ملاحظة علمية: النماذج مبنية على قياسات منشورة (النِّسَب،
+   الأعداد، الأبعاد) وتُعرض أرقامها بجانب كل نموذج مع مصادرها.
+   لكنها تبقى تمثيلاً هندسياً للبنية لا إحداثيات ذرية: لعرض
+   الذرّات الفعلية تُفتح البنية في بنك بيانات البروتين PDB
+   من روابط المصادر.
    ========================================================= */
 
 import { html, raw, render, $, $$, toast, clamp, delegate } from '../ui.js';
@@ -18,273 +21,526 @@ import { setCinemaDim } from '../background.js';
 import { recordModelExplored, isLoggedIn } from '../auth.js';
 
 /* =========================================================
-   بناء النماذج
-   كل نموذج يعيد { points, bonds, scale, caption, parts }
+   النماذج — مبنية من قياسات منشورة لا من تقدير بصري
+
+   كل نموذج يعلن الأرقام التي بُني عليها في حقل specs،
+   وتُعرض للمستخدم بجانب النموذج ليتحقّق منها.
    ========================================================= */
 
 const MODELS = {
 
-  /* ---------------- اللولب المزدوج للحمض النووي ---------------- */
+  /* ---------------- اللولب المزدوج B-DNA ----------------
+     القياسات المعيارية لشكل B:
+     • 10.5 زوج قاعدي لكل دورة كاملة
+     • ارتفاع 3.4 أنغستروم لكل زوج (خطوة الدورة ≈ 35.7 Å)
+     • قطر 20 أنغستروم (2 نانومتر)
+     • حلزون أيمن — وهذا ما تخطئ فيه معظم الرسوم
+     • الشريطان ليسا متقابلين بـ 180°: إزاحتهما الزاويّة
+       (نحو 144°) هي ما يولّد الأخدود الكبير والصغير
+     ---------------------------------------------------- */
   dna: {
     label: 'الحمض النووي',
-    latin: 'DNA Double Helix',
+    latin: 'B-DNA Double Helix',
     icon: '🧬',
-    blurb: 'سلّم ملتوٍ من شريطين متعاكسين، ودرجاته أزواج القواعد النيتروجينية.',
+    blurb: 'اللولب المزدوج بشكله الفيزيولوجي B: حلزون أيمن، عشرة أزواج ونصف لكل دورة، وأخدودان غير متساويين.',
     parts: [
       { color: '#64d9ff', label: 'الشريط السكري الفوسفاتي' },
-      { color: '#ff8a80', label: 'زوج القواعد A–T' },
-      { color: '#b388ff', label: 'زوج القواعد G–C' },
+      { color: '#ff8a80', label: 'زوج A–T (رابطتان هيدروجينيتان)' },
+      { color: '#b388ff', label: 'زوج G–C (ثلاث روابط)' },
+      { color: '#ffd54f', label: 'الأخدود الكبير' },
+    ],
+    specs: [
+      { label: 'أزواج القواعد لكل دورة', value: '10.5' },
+      { label: 'الارتفاع لكل زوج', value: '3.4 أنغستروم' },
+      { label: 'خطوة الحلزون', value: '≈ 35.7 أنغستروم' },
+      { label: 'القطر', value: '20 أنغستروم (2 نانومتر)' },
+      { label: 'الاتجاه', value: 'حلزون أيمن' },
+      { label: 'الأخدود الكبير / الصغير', value: '≈ 22 / 12 أنغستروم عرضاً' },
+    ],
+    sources: [
+      { label: 'البنية 1BNA — دوديكامير درو-ديكرسون', url: 'https://www.rcsb.org/structure/1BNA' },
+      { label: 'Molecular Biology of the Cell — Alberts et al.', url: 'https://www.ncbi.nlm.nih.gov/books/NBK21054/' },
     ],
     build(){
       const points = [], bonds = [];
-      const turns = 3.2, perTurn = 14, total = Math.round(turns * perTurn);
-      const radius = 46, rise = 4.6;
 
-      for (let i = 0; i < total; i++){
-        const angle = (i / perTurn) * Math.PI * 2;
-        const y = (i - total / 2) * rise;
+      const BP_PER_TURN = 10.5;
+      const RISE = 5.0;
+      const RADIUS = 44;
+      const GROOVE_OFFSET = (144 * Math.PI) / 180;
+      const TURNS = 2.6;
+      const total = Math.round(TURNS * BP_PER_TURN);
 
-        const a = points.push({ x: Math.cos(angle) * radius, y, z: Math.sin(angle) * radius, r: 5.4, color: '#64d9ff' }) - 1;
-        const b = points.push({ x: Math.cos(angle + Math.PI) * radius, y, z: Math.sin(angle + Math.PI) * radius, r: 5.4, color: '#4fc3f7' }) - 1;
+      // الشريطان يُرسمان بدقّة أعلى من أزواج القواعد (أربع نقاط
+      // لكل زوج) فيقرأهما العين شريطين ملتفّين متصلين لا كرات
+      const SUB = 4;
+      const strandA = [], strandB = [];
 
-        // ربط الشريطين على طولهما
+      for (let i = 0; i <= total * SUB; i++){
+        const bp = i / SUB;
+        const angle = (bp / BP_PER_TURN) * Math.PI * 2;   // موجب = حلزون أيمن
+        const y = (bp - total / 2) * RISE;
+        const isNode = i % SUB === 0;
+
+        strandA.push(points.push({
+          x: Math.cos(angle) * RADIUS, y, z: Math.sin(angle) * RADIUS,
+          r: isNode ? 4.6 : 2.9, color: '#64d9ff',
+        }) - 1);
+
+        strandB.push(points.push({
+          x: Math.cos(angle + GROOVE_OFFSET) * RADIUS, y, z: Math.sin(angle + GROOVE_OFFSET) * RADIUS,
+          r: isNode ? 4.6 : 2.9, color: '#3aa7d8',
+        }) - 1);
+
         if (i > 0){
-          bonds.push({ a: a - 2, b: a, color: '#3aa7d8', width: 3.2 });
-          bonds.push({ a: b - 2, b: b, color: '#3aa7d8', width: 3.2 });
+          bonds.push({ a: strandA[i - 1], b: strandA[i], color: '#4bb8e4', width: 4.4 });
+          bonds.push({ a: strandB[i - 1], b: strandB[i], color: '#2f8fc2', width: 4.4 });
         }
-
-        // درجات السلّم: زوج القواعد كل خطوة
-        const pairColor = i % 2 ? '#ff8a80' : '#b388ff';
-        const midA = points.push({ x: Math.cos(angle) * radius * .48, y, z: Math.sin(angle) * radius * .48, r: 3.4, color: pairColor }) - 1;
-        const midB = points.push({ x: Math.cos(angle + Math.PI) * radius * .48, y, z: Math.sin(angle + Math.PI) * radius * .48, r: 3.4, color: pairColor }) - 1;
-        bonds.push({ a, b: midA, color: pairColor, width: 2.2 });
-        bonds.push({ a: midA, b: midB, color: pairColor, width: 2.2 });
-        bonds.push({ a: midB, b, color: pairColor, width: 2.2 });
       }
-      return { points, bonds, scale: 1 };
+
+      // درجات السلّم: زوج قاعدي واحد عند كل عقدة
+      for (let bp = 0; bp <= total; bp++){
+        const i = bp * SUB;
+        const isGC = bp % 3 === 0;
+        const color = isGC ? '#b388ff' : '#ff8a80';
+        bonds.push({
+          a: strandA[i], b: strandB[i],
+          color,
+          // ثلاث روابط هيدروجينية في G–C مقابل رابطتين في A–T
+          width: isGC ? 3.6 : 2.4,
+        });
+      }
+
+      return { points, bonds };
     },
   },
 
-  /* ---------------- فيروس كروي بأشواك ---------------- */
-  virus: {
-    label: 'فيروس',
-    latin: 'Enveloped Virus',
-    icon: '☣️',
-    blurb: 'غلاف كروي مرصّع بأشواك بروتينية تلتصق بمستقبِلات الخلية المضيفة.',
+  /* ---------------- فيروس الإنفلونزا ----------------
+     • القطر 80–120 نانومتر
+     • نحو 500 شوكة، بنسبة تقارب 4 هيماغلوتينين : 1 نورامينيداز
+     • الهيماغلوتينين ثلاثي عصوي، والنورامينيداز رباعي فطري الشكل
+     • ثماني قطع من RNA سالب الاتجاه
+     نرسم عيّنة ممثّلة من الأشواك لا الخمسمئة كاملة حفاظاً
+     على وضوح الشكل وسرعة العرض، والعدد الحقيقي مذكور.
+     ---------------------------------------------------- */
+  influenza: {
+    label: 'فيروس الإنفلونزا',
+    latin: 'Influenza A virion',
+    icon: '🦠',
+    blurb: 'غلاف دهني كثيف الأشواك: عصيّات الهيماغلوتينين الثلاثية وفطريات النورامينيداز الرباعية، وثماني قطع وراثية منفصلة.',
     parts: [
       { color: '#ff8a80', label: 'الغلاف الدهني' },
-      { color: '#ffd180', label: 'الأشواك البروتينية' },
-      { color: '#82b1ff', label: 'المادة الوراثية' },
+      { color: '#ffd180', label: 'الهيماغلوتينين HA (ثلاثي)' },
+      { color: '#69f0ae', label: 'النورامينيداز NA (رباعي)' },
+      { color: '#82b1ff', label: 'قطع RNA الثماني' },
+    ],
+    specs: [
+      { label: 'القطر', value: '80 – 120 نانومتر' },
+      { label: 'عدد الأشواك الحقيقي', value: '≈ 500 لكل جسيم' },
+      { label: 'نسبة HA إلى NA', value: '≈ 4 : 1' },
+      { label: 'ارتفاع HA', value: '≈ 13.5 نانومتر' },
+      { label: 'الجينوم', value: '8 قطع RNA سالب، ≈ 13.5 ألف قاعدة' },
+      { label: 'المعروض هنا', value: '48 شوكة ممثّلة للتوضيح' },
+    ],
+    sources: [
+      { label: 'البنية 1RUZ — هيماغلوتينين إنفلونزا 1918', url: 'https://www.rcsb.org/structure/1RUZ' },
+      { label: 'الإنفلونزا الموسمية — منظمة الصحة العالمية', url: 'https://www.who.int/news-room/fact-sheets/detail/influenza-(seasonal)' },
     ],
     build(){
       const points = [], bonds = [];
-      const radius = 52;
+      const RADIUS = 50;
 
-      // توزيع متساوٍ على سطح كرة بطريقة حلزون فيبوناتشي
-      const shell = 220;
+      // الغلاف الدهني
+      const shell = 240;
       for (let i = 0; i < shell; i++){
         const y = 1 - (i / (shell - 1)) * 2;
         const r = Math.sqrt(Math.max(0, 1 - y * y));
-        const theta = i * 2.399963;
+        const theta = i * 2.399963;                 // حلزون فيبوناتشي — توزيع متساوٍ
         points.push({
-          x: Math.cos(theta) * r * radius,
-          y: y * radius,
-          z: Math.sin(theta) * r * radius,
-          r: 3.4, color: '#ff8a80',
+          x: Math.cos(theta) * r * RADIUS,
+          y: y * RADIUS,
+          z: Math.sin(theta) * r * RADIUS,
+          r: 3.2, color: '#ff8a80', alpha: .85,
         });
       }
 
-      // الأشواك
-      const spikes = 34;
-      for (let i = 0; i < spikes; i++){
-        const y = 1 - (i / (spikes - 1)) * 2;
+      // الأشواك بنسبة 4 HA : 1 NA
+      const SPIKES = 48;
+      for (let i = 0; i < SPIKES; i++){
+        const y = 1 - (i / (SPIKES - 1)) * 2;
         const r = Math.sqrt(Math.max(0, 1 - y * y));
-        const theta = i * 2.399963 + .6;
+        const theta = i * 2.399963 + .5;
         const dir = { x: Math.cos(theta) * r, y, z: Math.sin(theta) * r };
+        const isNA = i % 5 === 0;                   // واحد من كل خمسة
 
-        const base = points.push({ x: dir.x * radius, y: dir.y * radius, z: dir.z * radius, r: 3, color: '#ffab91' }) - 1;
-        const mid  = points.push({ x: dir.x * (radius + 12), y: dir.y * (radius + 12), z: dir.z * (radius + 12), r: 2.8, color: '#ffd180' }) - 1;
-        const tip  = points.push({ x: dir.x * (radius + 22), y: dir.y * (radius + 22), z: dir.z * (radius + 22), r: 6, color: '#ffd180' }) - 1;
-        bonds.push({ a: base, b: mid, color: '#ffab91', width: 2.6 });
-        bonds.push({ a: mid, b: tip, color: '#ffc46b', width: 2.6 });
+        const at = (d) => ({
+          x: dir.x * (RADIUS + d), y: dir.y * (RADIUS + d), z: dir.z * (RADIUS + d),
+        });
+
+        if (isNA){
+          // النورامينيداز: ساق رفيع ورأس رباعي عريض — شكل الفطر
+          const base = points.push({ ...at(1),  r: 2.6, color: '#69f0ae' }) - 1;
+          const stalk= points.push({ ...at(11), r: 2.4, color: '#69f0ae' }) - 1;
+          const head = points.push({ ...at(18), r: 6.4, color: '#69f0ae' }) - 1;
+          bonds.push({ a: base, b: stalk, color: '#43c98a', width: 2.2 });
+          bonds.push({ a: stalk, b: head, color: '#43c98a', width: 2.6 });
+        } else {
+          // الهيماغلوتينين: عصا ثلاثية أطول وأنحف رأساً
+          const base = points.push({ ...at(1),  r: 2.8, color: '#ffab91' }) - 1;
+          const mid  = points.push({ ...at(10), r: 2.6, color: '#ffd180' }) - 1;
+          const tip  = points.push({ ...at(20), r: 4.4, color: '#ffd180' }) - 1;
+          bonds.push({ a: base, b: mid, color: '#ffab91', width: 2.6 });
+          bonds.push({ a: mid, b: tip, color: '#ffc46b', width: 2.6 });
+        }
       }
 
-      // المادة الوراثية ملتفّة في الداخل
-      let previous = null;
-      for (let i = 0; i < 90; i++){
-        const t = i / 90 * Math.PI * 8;
-        const shrink = 26 * (1 - i / 260);
-        const index = points.push({
-          x: Math.cos(t) * shrink,
-          y: (i - 45) * .5,
-          z: Math.sin(t) * shrink,
-          r: 2.6, color: '#82b1ff',
-        }) - 1;
-        if (previous !== null) bonds.push({ a: previous, b: index, color: '#5b8fe0', width: 1.8 });
-        previous = index;
+      // ثماني قطع وراثية منفصلة — سمة الإنفلونزا المميّزة
+      for (let segment = 0; segment < 8; segment++){
+        const angle = (segment / 8) * Math.PI * 2;
+        const cx = Math.cos(angle) * 20;
+        const cz = Math.sin(angle) * 20;
+        const length = 10 + segment;               // الأطوال متفاوتة كما في الواقع
+        let previous = null;
+        for (let i = 0; i < length; i++){
+          const t = i / length;
+          const index = points.push({
+            x: cx + Math.cos(t * 7 + segment) * 5,
+            y: (t - .5) * 46,
+            z: cz + Math.sin(t * 7 + segment) * 5,
+            r: 2.4, color: '#82b1ff', alpha: .95,
+          }) - 1;
+          if (previous !== null) bonds.push({ a: previous, b: index, color: '#5b8fe0', width: 1.8 });
+          previous = index;
+        }
       }
 
-      return { points, bonds, scale: 1 };
+      return { points, bonds };
     },
   },
 
-  /* ---------------- خلية حيوانية ---------------- */
-  cell: {
-    label: 'الخلية الحيوانية',
-    latin: 'Animal Cell',
-    icon: '🔵',
-    blurb: 'غشاء خارجي يحيط بالنواة والميتوكوندريا وبقية العضيات السابحة في السيتوبلازم.',
+  /* ---------------- فيروس كورونا ----------------
+     الفارق الجوهري عن الإنفلونزا: عدد الأشواك.
+     قياسات التصوير المقطعي البردي تعطي نحو 24 ± 9 شوكة
+     ثلاثية لكل جسيم — أي عُشر ما على الإنفلونزا تقريباً.
+     ---------------------------------------------------- */
+  coronavirus: {
+    label: 'فيروس كورونا',
+    latin: 'SARS-CoV-2 virion',
+    icon: '☣️',
+    blurb: 'أشواك قليلة متباعدة على عكس الانطباع الشائع: نحو ٢٤ شوكة فقط، كل منها بروتين ثلاثي هُرَاوي الشكل.',
     parts: [
-      { color: '#4dd0e1', label: 'الغشاء الخلوي' },
-      { color: '#b388ff', label: 'النواة' },
-      { color: '#ffab40', label: 'الميتوكوندريا' },
-      { color: '#69f0ae', label: 'الريبوسومات' },
+      { color: '#9fa8da', label: 'الغلاف الدهني' },
+      { color: '#ff8a80', label: 'بروتين الشوكة S (ثلاثي)' },
+      { color: '#4dd0e1', label: 'بروتين الغشاء M' },
+      { color: '#ffd54f', label: 'حلزون النوكليوكابسيد N' },
+    ],
+    specs: [
+      { label: 'القطر', value: '80 – 120 نانومتر (متوسط ≈ 91)' },
+      { label: 'عدد الأشواك', value: '≈ 24 ± 9 لكل جسيم' },
+      { label: 'ارتفاع الشوكة', value: '≈ 25 نانومتر' },
+      { label: 'بنية الشوكة', value: 'بروتين ثلاثي (trimer)' },
+      { label: 'الجينوم', value: 'RNA موجب مفرد، ≈ 29,900 قاعدة' },
+      { label: 'المعروض هنا', value: '24 شوكة — العدد الحقيقي' },
+    ],
+    sources: [
+      { label: 'البنية 6VXX — الشوكة في الحالة المغلقة', url: 'https://www.rcsb.org/structure/6VXX' },
+      { label: 'البنية 6VSB — الشوكة قبل الاندماج', url: 'https://www.rcsb.org/structure/6VSB' },
     ],
     build(){
       const points = [], bonds = [];
-      const radius = 74;
+      const RADIUS = 48;
 
-      // الغشاء — نقاط شفافة على السطح
-      for (let i = 0; i < 260; i++){
-        const y = 1 - (i / 259) * 2;
+      for (let i = 0; i < 230; i++){
+        const y = 1 - (i / 229) * 2;
         const r = Math.sqrt(Math.max(0, 1 - y * y));
         const theta = i * 2.399963;
         points.push({
-          x: Math.cos(theta) * r * radius,
-          y: y * radius,
-          z: Math.sin(theta) * r * radius,
-          r: 2.6, color: '#4dd0e1', alpha: .5,
+          x: Math.cos(theta) * r * RADIUS,
+          y: y * RADIUS,
+          z: Math.sin(theta) * r * RADIUS,
+          r: 3, color: i % 4 === 0 ? '#4dd0e1' : '#9fa8da', alpha: .8,
         });
       }
 
-      // النواة
-      const nucleusR = 26;
-      for (let i = 0; i < 120; i++){
-        const y = 1 - (i / 119) * 2;
+      // 24 شوكة — العدد المقيس فعلياً، والفرق عن الإنفلونزا ظاهر للعين
+      const SPIKES = 24;
+      for (let i = 0; i < SPIKES; i++){
+        const y = 1 - (i / (SPIKES - 1)) * 2;
+        const r = Math.sqrt(Math.max(0, 1 - y * y));
+        const theta = i * 2.399963 + .9;
+        const dir = { x: Math.cos(theta) * r, y, z: Math.sin(theta) * r };
+        const at = (d) => ({ x: dir.x * (RADIUS + d), y: dir.y * (RADIUS + d), z: dir.z * (RADIUS + d) });
+
+        // ساق رفيع يعلوه رأس عريض — شكل الهراوة المميّز
+        const base = points.push({ ...at(1),  r: 3,   color: '#ff8a80' }) - 1;
+        const neck = points.push({ ...at(11), r: 2.8, color: '#ff8a80' }) - 1;
+        const head = points.push({ ...at(21), r: 7.2, color: '#ff5252' }) - 1;
+        bonds.push({ a: base, b: neck, color: '#ff8a80', width: 3 });
+        bonds.push({ a: neck, b: head, color: '#ff7062', width: 3.4 });
+      }
+
+      // حلزون النوكليوكابسيد الشريطي
+      let previous = null;
+      for (let i = 0; i < 110; i++){
+        const t = (i / 110) * Math.PI * 9;
+        const shrink = 25 * (1 - i / 300);
+        const index = points.push({
+          x: Math.cos(t) * shrink,
+          y: (i - 55) * .42,
+          z: Math.sin(t) * shrink,
+          r: 2.6, color: '#ffd54f', alpha: .95,
+        }) - 1;
+        if (previous !== null) bonds.push({ a: previous, b: index, color: '#ffb300', width: 1.9 });
+        previous = index;
+      }
+
+      return { points, bonds };
+    },
+  },
+
+  /* ---------------- العاثية T4 ----------------
+     • رأس عشروني مطاول 120 × 86 نانومتر
+     • ذيل 100 نانومتر بغمد قابل للانقباض
+     • ستّ ألياف ذيلية طويلة — لا أربع
+     ---------------------------------------------------- */
+  phage: {
+    label: 'العاثية T4',
+    latin: 'Escherichia virus T4',
+    icon: '🛸',
+    blurb: 'آلة حقن بيولوجية: رأس عشروني مطاول، وغمد ينقبض كالمكبس، وستّ أرجل تتحسّس المضيف قبل الهبوط.',
+    parts: [
+      { color: '#b3e5fc', label: 'الرأس العشروني المطاول' },
+      { color: '#4dd0e1', label: 'الغمد المنقبض' },
+      { color: '#ffd54f', label: 'الصفيحة القاعدية' },
+      { color: '#a5d6a7', label: 'الألياف الذيلية الست' },
+    ],
+    specs: [
+      { label: 'الرأس', value: '≈ 120 × 86 نانومتر' },
+      { label: 'شكل الرأس', value: 'عشروني مطاول (prolate icosahedron)' },
+      { label: 'الذيل', value: '≈ 100 نانومتر' },
+      { label: 'الألياف الطويلة', value: '6 (وستّ قصيرة إضافية)' },
+      { label: 'الجينوم', value: 'DNA مزدوج، ≈ 169 ألف زوج قاعدي' },
+      { label: 'الحصيلة لكل خلية', value: '100 – 200 جسيم خلال ≈ 30 دقيقة' },
+    ],
+    sources: [
+      { label: 'البنية 5VF3 — الصفيحة القاعدية للعاثية T4', url: 'https://www.rcsb.org/structure/5VF3' },
+      { label: 'التصنيف في NCBI', url: 'https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?name=Escherichia%20virus%20T4' },
+    ],
+    build(){
+      const points = [], bonds = [];
+
+      /* الرأس: عشروني مطاول — نبنيه من رؤوس عشروني منتظم
+         ثم نمدّده على المحور Y بنسبة 120/86 الحقيقية */
+      const PHI = (1 + Math.sqrt(5)) / 2;
+      const STRETCH = 120 / 86;
+      const headR = 30;
+
+      /* الرؤوس الاثنا عشر الأساسية للعشروني المنتظم.
+         نحسب الحواف على الشكل المنتظم أولاً (طول الحافة = 2
+         بالضبط في هذا النظام)، ثم نطبّق التمديد — وإلا أخطأ
+         اختيار الحواف بعد تشوّه المسافات. */
+      const icoVerts = [];
+      for (const s1 of [1, -1]) for (const s2 of [1, -1]){
+        icoVerts.push([0, s1, s2 * PHI]);
+        icoVerts.push([s1, s2 * PHI, 0]);
+        icoVerts.push([s2 * PHI, 0, s1]);
+      }
+
+      const headStart = points.length;
+      const norm = Math.hypot(1, PHI);
+      for (const [x, y, z] of icoVerts){
+        points.push({
+          x: (x / norm) * headR,
+          y: (y / norm) * headR * STRETCH + 62,
+          z: (z / norm) * headR,
+          r: 6, color: '#b3e5fc',
+        });
+      }
+
+      // الحواف الثلاثون: تُحدَّد من المسافة على الشكل المنتظم قبل التمديد
+      const edgeLen = (2 / norm) * headR;
+      for (let i = 0; i < icoVerts.length; i++){
+        for (let j = i + 1; j < icoVerts.length; j++){
+          const d = Math.hypot(
+            (icoVerts[i][0] - icoVerts[j][0]) / norm * headR,
+            (icoVerts[i][1] - icoVerts[j][1]) / norm * headR,
+            (icoVerts[i][2] - icoVerts[j][2]) / norm * headR,
+          );
+          if (Math.abs(d - edgeLen) < edgeLen * 0.05){
+            bonds.push({ a: headStart + i, b: headStart + j, color: '#5bb9e8', width: 2.8 });
+          }
+        }
+      }
+
+      // الياقة والغمد المنقبض — حلقات متتابعة
+      let previousRing = null;
+      for (let ring = 0; ring < 9; ring++){
+        const y = 14 - ring * 8;
+        const ringPoints = [];
+        for (let i = 0; i < 6; i++){
+          const angle = (i / 6) * Math.PI * 2 + ring * .18;
+          ringPoints.push(points.push({
+            x: Math.cos(angle) * 11, y, z: Math.sin(angle) * 11,
+            r: 3.4, color: '#4dd0e1',
+          }) - 1);
+        }
+        for (let i = 0; i < 6; i++){
+          bonds.push({ a: ringPoints[i], b: ringPoints[(i + 1) % 6], color: '#3aa7d8', width: 2 });
+          if (previousRing) bonds.push({ a: previousRing[i], b: ringPoints[i], color: '#3aa7d8', width: 2 });
+        }
+        previousRing = ringPoints;
+      }
+
+      // الصفيحة القاعدية سداسية
+      const plate = [];
+      for (let i = 0; i < 6; i++){
+        const angle = (i / 6) * Math.PI * 2;
+        plate.push(points.push({
+          x: Math.cos(angle) * 17, y: -60, z: Math.sin(angle) * 17,
+          r: 4.6, color: '#ffd54f',
+        }) - 1);
+      }
+      for (let i = 0; i < 6; i++){
+        bonds.push({ a: plate[i], b: plate[(i + 1) % 6], color: '#ffb300', width: 3 });
+      }
+
+      // ستّ ألياف ذيلية — العدد الحقيقي
+      for (let i = 0; i < 6; i++){
+        const angle = (i / 6) * Math.PI * 2;
+        const knee = points.push({
+          x: Math.cos(angle) * 34, y: -76, z: Math.sin(angle) * 34,
+          r: 3, color: '#a5d6a7',
+        }) - 1;
+        const foot = points.push({
+          x: Math.cos(angle) * 44, y: -100, z: Math.sin(angle) * 44,
+          r: 3.4, color: '#a5d6a7',
+        }) - 1;
+        bonds.push({ a: plate[i], b: knee, color: '#81c784', width: 2.6 });
+        bonds.push({ a: knee, b: foot, color: '#81c784', width: 2.6 });
+      }
+
+      return { points, bonds };
+    },
+  },
+
+  /* ---------------- الخلية الحيوانية ----------------
+     النِّسَب مأخوذة من خلية بشرية نموذجية بقطر ≈ 20 ميكرومتر:
+     • النواة ≈ 6 ميكرومتر — نحو 10٪ من حجم الخلية
+     • الميتوكوندريا 0.5–1 × 1–2 ميكرومتر، مئات إلى آلاف
+     • الريبوسومات ≈ 25 نانومتر، ملايين
+     ---------------------------------------------------- */
+  cell: {
+    label: 'الخلية الحيوانية',
+    latin: 'Animal cell',
+    icon: '🔵',
+    blurb: 'النِّسَب هنا مقيسة لا تقديرية: النواة تشغل نحو عُشر الحجم، والميتوكوندريا كبسولات لا كرات.',
+    parts: [
+      { color: '#4dd0e1', label: 'الغشاء البلازمي' },
+      { color: '#b388ff', label: 'النواة والنوية' },
+      { color: '#ffab40', label: 'الميتوكوندريا' },
+      { color: '#69f0ae', label: 'الريبوسومات' },
+      { color: '#ff8a80', label: 'الشبكة الإندوبلازمية' },
+    ],
+    specs: [
+      { label: 'قطر الخلية', value: '10 – 30 ميكرومتر' },
+      { label: 'قطر النواة', value: '≈ 6 ميكرومتر (نحو 10٪ من الحجم)' },
+      { label: 'الميتوكوندريا', value: '0.5 – 1 × 1 – 2 ميكرومتر' },
+      { label: 'عددها', value: 'من مئات إلى آلاف حسب نوع الخلية' },
+      { label: 'قطر الريبوسوم', value: '≈ 25 نانومتر' },
+      { label: 'سُمك الغشاء', value: '≈ 7 – 8 نانومتر' },
+    ],
+    sources: [
+      { label: 'Molecular Biology of the Cell — Alberts et al.', url: 'https://www.ncbi.nlm.nih.gov/books/NBK21054/' },
+      { label: 'Molecular Cell Biology — Lodish et al.', url: 'https://www.ncbi.nlm.nih.gov/books/NBK21475/' },
+    ],
+    build(){
+      const points = [], bonds = [];
+      const RADIUS = 76;
+
+      // الغشاء البلازمي
+      for (let i = 0; i < 280; i++){
+        const y = 1 - (i / 279) * 2;
         const r = Math.sqrt(Math.max(0, 1 - y * y));
         const theta = i * 2.399963;
         points.push({
-          x: Math.cos(theta) * r * nucleusR - 10,
-          y: y * nucleusR + 6,
+          x: Math.cos(theta) * r * RADIUS,
+          y: y * RADIUS,
+          z: Math.sin(theta) * r * RADIUS,
+          r: 2.5, color: '#4dd0e1', alpha: .42,
+        });
+      }
+
+      // النواة — قطرها نحو 30٪ من قطر الخلية (≈ 10٪ من الحجم)
+      const nucleusR = RADIUS * .3;
+      for (let i = 0; i < 150; i++){
+        const y = 1 - (i / 149) * 2;
+        const r = Math.sqrt(Math.max(0, 1 - y * y));
+        const theta = i * 2.399963;
+        points.push({
+          x: Math.cos(theta) * r * nucleusR - 8,
+          y: y * nucleusR + 5,
           z: Math.sin(theta) * r * nucleusR,
-          r: 3.6, color: '#b388ff', alpha: .95,
+          r: 3.4, color: '#b388ff', alpha: .92,
         });
       }
-      points.push({ x: -10, y: 6, z: 0, r: 12, color: '#7c4dff', alpha: 1 });   // النوية
+      points.push({ x: -8, y: 5, z: 0, r: 11, color: '#7c4dff', alpha: 1 });   // النوية
 
-      // الميتوكوندريا — كبسولات موزّعة
+      // الميتوكوندريا — كبسولات مطاولة بنسبة الطول إلى العرض ≈ 2:1
       const mitoSpots = [
-        { x:  38, y: -26, z:  14, angle:  .6 },
-        { x: -42, y:  30, z: -18, angle: -.9 },
-        { x:  14, y:  44, z:  26, angle:  1.4 },
-        { x: -20, y: -44, z:  30, angle:  .2 },
-        { x:  44, y:  10, z: -34, angle: -.4 },
+        { x:  42, y: -28, z:  16, angle:  .6 },
+        { x: -46, y:  32, z: -20, angle: -.9 },
+        { x:  16, y:  48, z:  28, angle:  1.4 },
+        { x: -22, y: -48, z:  32, angle:  .2 },
+        { x:  48, y:  12, z: -36, angle: -.4 },
+        { x: -12, y:  -8, z: -52, angle:  1.1 },
       ];
       for (const spot of mitoSpots){
         let previous = null;
-        for (let i = 0; i < 7; i++){
-          const offset = (i - 3) * 5;
+        for (let i = 0; i < 8; i++){
+          const offset = (i - 3.5) * 5.2;
           const index = points.push({
             x: spot.x + Math.cos(spot.angle) * offset,
             y: spot.y + Math.sin(spot.angle) * offset,
             z: spot.z,
-            r: 5.6 - Math.abs(i - 3) * .5,
+            r: 5.4 - Math.abs(i - 3.5) * .45,
             color: '#ffab40', alpha: 1,
           }) - 1;
-          if (previous !== null) bonds.push({ a: previous, b: index, color: '#ff8f00', width: 4 });
+          if (previous !== null) bonds.push({ a: previous, b: index, color: '#ff8f00', width: 4.2 });
+          previous = index;
+        }
+      }
+
+      // الشبكة الإندوبلازمية — أغشية مطوية حول النواة
+      for (let sheet = 0; sheet < 3; sheet++){
+        let previous = null;
+        for (let i = 0; i < 26; i++){
+          const t = (i / 26) * Math.PI * 2;
+          const rr = 40 + sheet * 8;
+          const index = points.push({
+            x: Math.cos(t) * rr - 8,
+            y: Math.sin(t * 2) * 9 + (sheet - 1) * 14 + 5,
+            z: Math.sin(t) * rr,
+            r: 2.2, color: '#ff8a80', alpha: .7,
+          }) - 1;
+          if (previous !== null) bonds.push({ a: previous, b: index, color: '#e06b62', width: 1.8 });
           previous = index;
         }
       }
 
       // الريبوسومات
-      for (let i = 0; i < 46; i++){
+      for (let i = 0; i < 54; i++){
         const theta = Math.random() * Math.PI * 2;
         const phi = Math.acos(2 * Math.random() - 1);
-        const r = 30 + Math.random() * 36;
+        const r = 32 + Math.random() * 38;
         points.push({
           x: Math.sin(phi) * Math.cos(theta) * r,
           y: Math.cos(phi) * r,
           z: Math.sin(phi) * Math.sin(theta) * r,
-          r: 2.4, color: '#69f0ae', alpha: .9,
+          r: 2.2, color: '#69f0ae', alpha: .9,
         });
       }
 
-      return { points, bonds, scale: 1 };
-    },
-  },
-
-  /* ---------------- بكتيريا عصوية ---------------- */
-  bacterium: {
-    label: 'خلية بكتيرية',
-    latin: 'Bacillus Cell',
-    icon: '🦠',
-    blurb: 'خلية بدائية النواة: جدار صلب، ومادة وراثية حلقية طليقة، وأسواط للحركة.',
-    parts: [
-      { color: '#80deea', label: 'جدار الخلية' },
-      { color: '#ffd54f', label: 'الحمض النووي الحلقي' },
-      { color: '#f48fb1', label: 'الريبوسومات' },
-      { color: '#a5d6a7', label: 'السوط' },
-    ],
-    build(){
-      const points = [], bonds = [];
-      const length = 78, radius = 32;
-
-      // جسم كبسولي
-      for (let i = 0; i < 300; i++){
-        const t = i / 299;
-        const y = (t - .5) * 2 * length;
-        const capped = Math.abs(y) > length - radius;
-        const r = capped
-          ? Math.sqrt(Math.max(0, radius * radius - (Math.abs(y) - (length - radius)) ** 2))
-          : radius;
-        const theta = i * 2.399963;
-        points.push({ x: Math.cos(theta) * r, y, z: Math.sin(theta) * r, r: 2.8, color: '#80deea', alpha: .55 });
-      }
-
-      // النوكليويد — حمض نووي حلقي
-      let first = null, previous = null;
-      for (let i = 0; i < 54; i++){
-        const t = (i / 54) * Math.PI * 2;
-        const index = points.push({
-          x: Math.cos(t) * 17 + Math.sin(t * 3) * 5,
-          y: Math.sin(t) * 26,
-          z: Math.sin(t * 2) * 13,
-          r: 3, color: '#ffd54f', alpha: 1,
-        }) - 1;
-        if (previous !== null) bonds.push({ a: previous, b: index, color: '#ffb300', width: 2.4 });
-        if (first === null) first = index;
-        previous = index;
-      }
-      bonds.push({ a: previous, b: first, color: '#ffb300', width: 2.4 });
-
-      // ريبوسومات
-      for (let i = 0; i < 40; i++){
-        points.push({
-          x: (Math.random() - .5) * 46,
-          y: (Math.random() - .5) * 130,
-          z: (Math.random() - .5) * 46,
-          r: 2.2, color: '#f48fb1', alpha: .9,
-        });
-      }
-
-      // أسواط
-      for (let f = 0; f < 3; f++){
-        let prev = null;
-        const baseAngle = (f / 3) * Math.PI * 2;
-        for (let i = 0; i < 20; i++){
-          const t = i / 19;
-          const index = points.push({
-            x: Math.cos(baseAngle + t * 6) * (10 + t * 16),
-            y: -length - t * 54,
-            z: Math.sin(baseAngle + t * 6) * (10 + t * 16),
-            r: 2, color: '#a5d6a7', alpha: .85,
-          }) - 1;
-          if (prev !== null) bonds.push({ a: prev, b: index, color: '#81c784', width: 2 });
-          prev = index;
-        }
-      }
-
-      return { points, bonds, scale: 1 };
+      return { points, bonds };
     },
   },
 };
@@ -342,6 +598,12 @@ export default function lab3dView({ outlet, query }){
             <h3 class="lab3d__legend-title">مفتاح الألوان</h3>
             <ul class="lab3d__legend" id="legend"></ul>
 
+            <h3 class="lab3d__legend-title">القياسات المعتمدة</h3>
+            <dl class="lab3d__specs" id="specs"></dl>
+
+            <h3 class="lab3d__legend-title">المصادر</h3>
+            <ul class="lab3d__sources" id="sources3d"></ul>
+
             <div class="lab3d__controls">
               <label class="checkbox">
                 <input type="checkbox" id="spinToggle" checked />
@@ -360,7 +622,8 @@ export default function lab3dView({ outlet, query }){
             </div>
 
             <p class="lab3d__note">
-              النماذج تخطيطية لأغراض تعليمية: تُظهر البنية والترتيب، لا الأبعاد الذرية الدقيقة.
+              النِّسَب والأعداد أعلاه مأخوذة من القياسات المنشورة وطُبِّقت في بناء النموذج.
+              التمثيل هندسي للبنية لا إحداثيات ذرية — افتح رابط البنية في PDB لعرض الذرّات.
             </p>
           </aside>
         </div>
@@ -418,7 +681,9 @@ export default function lab3dView({ outlet, query }){
       const depth = focal / (focal + z2);
       projected.push({
         x: width / 2 + x1 * depth * scale,
-        y: height / 2 + y2 * depth * scale,
+        // نطرح لأن محور Y في اللوحة يتّجه لأسفل، ونريد الموجب لأعلى
+        // كما في الاصطلاح العلمي (رأس العاثية فوق، أرجلها تحت)
+        y: height / 2 - y2 * depth * scale,
         z: z2,
         r: Math.max(.6, point.r * depth * scale * .5),
         color: point.color,
@@ -503,6 +768,29 @@ export default function lab3dView({ outlet, query }){
         <li class="lab3d__legend-item">
           <span class="lab3d__swatch" style="background:${part.color}"></span>
           ${part.label}
+        </li>
+      `)}
+    `);
+
+    $('#specs', outlet).innerHTML = render(html`
+      ${(model.specs ?? []).map((spec) => html`
+        <div class="lab3d__spec">
+          <dt>${spec.label}</dt>
+          <dd class="mono">${spec.value}</dd>
+        </div>
+      `)}
+    `);
+
+    $('#sources3d', outlet).innerHTML = render(html`
+      ${(model.sources ?? []).map((source) => html`
+        <li>
+          <a class="lab3d__source" href="${source.url}" target="_blank" rel="noopener noreferrer">
+            ${source.label}
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"
+                    stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </a>
         </li>
       `)}
     `);

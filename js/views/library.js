@@ -7,7 +7,7 @@ import { html, raw, render, $, $$, toast, debounce, delegate, observeReveal } fr
 import { setCinemaDim } from '../background.js';
 import { specimenSVG } from '../art.js';
 import {
-  SPECIMENS, CATEGORIES, RISK_LEVELS,
+  SPECIMENS, CATEGORIES, RISK_LEVELS, GRAM_BEHAVIOUR,
   getSpecimen, searchSpecimens, categoryCounts, categoryLabel, formatSize,
 } from '../data/specimens.js';
 import {
@@ -255,6 +255,7 @@ export function specimenView({ outlet, params }){
   }
 
   const risk = RISK_LEVELS[specimen.risk];
+  const gram = specimen.gram ? GRAM_BEHAVIOUR[specimen.gram] : null;
   const saved = isLoggedIn() && isSaved(specimen.id);
   const related = SPECIMENS
     .filter((s) => s.category === specimen.category && s.id !== specimen.id)
@@ -304,10 +305,65 @@ export function specimenView({ outlet, params }){
 
         <div class="specimen__grid">
           <div class="specimen__main stack">
+            ${specimen.anatomy.length ? html`
+              <section class="card anatomy" id="anatomyCard">
+                <h2 class="specimen__section-title">أجزاء الكائن</h2>
+                <p class="anatomy__lead">
+                  مرّر على أي رقم في الرسم أو في القائمة لتعرف الجزء ووظيفته.
+                </p>
+
+                <div class="anatomy__grid">
+                  <div class="anatomy__stage">
+                    ${raw(specimenSVG(specimen.art, { size: 320, animate: false }))}
+                    ${specimen.anatomy.map((part, i) => html`
+                      <button class="anatomy__pin" type="button"
+                              data-part="${part.key}" aria-label="${part.label}"
+                              style="left:${(part.x / 2)}%; top:${(part.y / 2)}%">
+                        ${i + 1}
+                      </button>
+                    `)}
+                  </div>
+
+                  <div class="anatomy__side">
+                    <ol class="anatomy__list">
+                      ${specimen.anatomy.map((part, i) => html`
+                        <li>
+                          <button class="anatomy__item" type="button" data-part="${part.key}">
+                            <span class="anatomy__num">${i + 1}</span>
+                            <span class="anatomy__label">${part.label}</span>
+                          </button>
+                        </li>
+                      `)}
+                    </ol>
+                    <p class="anatomy__desc" id="anatomyDesc" role="status">
+                      اختر جزءاً لعرض شرحه.
+                    </p>
+                  </div>
+                </div>
+              </section>
+            ` : ''}
+
             <section class="card">
               <h2 class="specimen__section-title">نظرة تفصيلية</h2>
               <p class="specimen__body">${specimen.body}</p>
             </section>
+
+            ${specimen.metrics.length ? html`
+              <section class="card">
+                <h2 class="specimen__section-title">قياسات منشورة</h2>
+                <dl class="metrics">
+                  ${specimen.metrics.map((metric) => html`
+                    <div class="metrics__row">
+                      <dt>${metric.label}</dt>
+                      <dd class="mono">${metric.value}</dd>
+                    </div>
+                  `)}
+                </dl>
+                <p class="metrics__note">
+                  القيم الحيوية نطاقات لا ثوابت — تختلف بين السلالات وظروف النمو وطرق القياس.
+                </p>
+              </section>
+            ` : ''}
 
             <section class="card">
               <h2 class="specimen__section-title">حقائق مدهشة</h2>
@@ -333,6 +389,31 @@ export function specimenView({ outlet, params }){
                 <p class="quiz__feedback" id="quizFeedback" role="status"></p>
               </section>
             ` : ''}
+
+            ${specimen.sources.length ? html`
+              <section class="card sources">
+                <h2 class="specimen__section-title">المصادر</h2>
+                <p class="sources__lead">
+                  افتح أي مصدر وتحقّق بنفسك. لم نعتمد على أي مرجع غير قابل للمراجعة.
+                </p>
+                <ul class="sources__list">
+                  ${specimen.sources.map((source) => html`
+                    <li class="sources__item">
+                      ${source.url ? html`
+                        <a class="sources__link" href="${source.url}" target="_blank" rel="noopener noreferrer">
+                          ${source.label}
+                          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"
+                                  stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                          </svg>
+                        </a>
+                      ` : html`<span class="sources__link sources__link--plain">${source.label}</span>`}
+                      <span class="sources__publisher">${source.publisher}</span>
+                    </li>
+                  `)}
+                </ul>
+              </section>
+            ` : ''}
           </div>
 
           <aside class="specimen__aside stack">
@@ -340,12 +421,38 @@ export function specimenView({ outlet, params }){
               <h2 class="specimen__section-title">البطاقة التعريفية</h2>
               <dl class="datalist">
                 <div><dt>الحجم</dt><dd class="mono">${formatSize(specimen.sizeText)}</dd></div>
-                <div><dt>التصنيف</dt><dd>${categoryLabel(specimen.category)}</dd></div>
+                <div><dt>المجموعة</dt><dd>${categoryLabel(specimen.category)}</dd></div>
                 <div><dt>البيئة</dt><dd>${specimen.habitat}</dd></div>
                 <div><dt>الاكتشاف</dt><dd>${specimen.discovered}</dd></div>
                 <div><dt>الخطورة</dt><dd>${risk.label}</dd></div>
               </dl>
             </section>
+
+            ${gram ? html`
+              <section class="card gram-card">
+                <h2 class="specimen__section-title">سلوك صبغة جرام</h2>
+                <span class="badge badge--${gram.badge}">${gram.label}</span>
+                <p class="gram-card__note">${gram.note}</p>
+                <a class="gram-card__link" href="#/microscope?specimen=${specimen.id}&stain=gram">
+                  شاهد النتيجة في المجهر ←
+                </a>
+              </section>
+            ` : ''}
+
+            ${specimen.taxonomy ? html`
+              <section class="card">
+                <h2 class="specimen__section-title">التصنيف العلمي</h2>
+                <dl class="datalist datalist--taxonomy">
+                  <div><dt>النطاق</dt><dd>${specimen.taxonomy.domain}</dd></div>
+                  <div><dt>الشعبة</dt><dd>${specimen.taxonomy.phylum}</dd></div>
+                  <div><dt>الطائفة</dt><dd>${specimen.taxonomy.class}</dd></div>
+                  <div><dt>الرتبة</dt><dd>${specimen.taxonomy.order}</dd></div>
+                  <div><dt>الفصيلة</dt><dd>${specimen.taxonomy.family}</dd></div>
+                  <div><dt>الجنس</dt><dd class="latin">${specimen.taxonomy.genus}</dd></div>
+                  <div><dt>النوع</dt><dd>${specimen.taxonomy.species}</dd></div>
+                </dl>
+              </section>
+            ` : ''}
 
             <section class="card scale-card">
               <h2 class="specimen__section-title">مقارنة الحجم</h2>
@@ -388,6 +495,29 @@ export function specimenView({ outlet, params }){
 
   wireSaveButtons(outlet);
   wireQuiz(outlet, specimen);
+  wireAnatomy(outlet, specimen);
+}
+
+/** يربط أرقام الرسم بقائمة الأجزاء وشرحها */
+function wireAnatomy(root, specimen){
+  if (!specimen.anatomy.length) return;
+
+  const card = $('#anatomyCard', root);
+  const desc = $('#anatomyDesc', card);
+
+  const select = (key) => {
+    const part = specimen.anatomy.find((p) => p.key === key);
+    if (!part) return;
+
+    $$('[data-part]', card).forEach((node) => {
+      node.classList.toggle('is-active', node.dataset.part === key);
+    });
+    desc.innerHTML = render(html`<strong>${part.label}</strong> — ${part.desc}`);
+  };
+
+  delegate(card, 'click', '[data-part]', (_event, node) => select(node.dataset.part));
+  delegate(card, 'mouseover', '[data-part]', (_event, node) => select(node.dataset.part));
+  delegate(card, 'focusin', '[data-part]', (_event, node) => select(node.dataset.part));
 }
 
 /** يفعّل سؤال الاختبار */

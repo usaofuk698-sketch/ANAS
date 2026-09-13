@@ -785,3 +785,253 @@
 @media (max-width: 600px){
   .chat__msg{ max-width: 95%; }
 }
+
+/* =========================================================
+   مستكشف أجزاء الكائن
+   ========================================================= */
+.anatomy__lead{ color: var(--muted); font-size: 13.5px; margin-bottom: 18px; line-height: 1.75; }
+
+.anatomy__grid{
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+  gap: clamp(18px, 3vw, 32px);
+  align-items: start;
+}
+
+.anatomy__stage{
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--line);
+  background: radial-gradient(circle at 50% 45%, rgba(16, 48, 80, .55), rgba(2, 10, 21, .8) 72%);
+  display: grid; place-items: center;
+  overflow: hidden;
+}
+.anatomy__stage svg{ width: 100%; height: 100%; }
+
+/* الأرقام موضوعة بإحداثيات الرسم نفسه (فضاء 200×200) */
+.anatomy__pin{
+  position: absolute;
+  /* الموضع يأتي من إحداثيات الرسم (left/top)، فالإزاحة نصف العرض للخلف */
+  transform: translate(-50%, -50%);
+  width: 26px; height: 26px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  background: rgba(3, 16, 30, .92);
+  color: var(--cyan);
+  font-size: 12px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: transform var(--t-fast), background var(--t-fast), box-shadow var(--t-fast);
+}
+.anatomy__pin:hover,
+.anatomy__pin.is-active{
+  background: linear-gradient(135deg, var(--cyan-bright), var(--blue-soft));
+  color: #02111f;
+  transform: translate(-50%, -50%) scale(1.22);
+  box-shadow: 0 0 0 5px rgba(100, 217, 255, .18), 0 6px 20px rgba(0, 0, 0, .45);
+}
+
+.anatomy__side{ display: flex; flex-direction: column; gap: 14px; }
+.anatomy__list{ list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.anatomy__item{
+  width: 100%; text-align: start;
+  display: flex; align-items: center; gap: 11px;
+  padding: 9px 12px; border-radius: var(--r-sm);
+  border: 1px solid transparent; background: transparent;
+  color: var(--muted); font-size: 14px; cursor: pointer;
+  transition: all var(--t-fast);
+}
+.anatomy__item:hover,
+.anatomy__item.is-active{
+  color: var(--ink);
+  background: rgba(18, 55, 82, .55);
+  border-color: var(--line);
+}
+.anatomy__num{
+  width: 23px; height: 23px; flex-shrink: 0;
+  display: grid; place-items: center; border-radius: 50%;
+  background: rgba(10, 38, 64, .8); border: 1px solid var(--line);
+  font-size: 11.5px; font-weight: 700; color: var(--cyan);
+  font-variant-numeric: tabular-nums;
+}
+.anatomy__item.is-active .anatomy__num{
+  background: linear-gradient(135deg, var(--cyan-bright), var(--blue-soft));
+  color: #02111f; border-color: transparent;
+}
+.anatomy__desc{
+  padding: 15px 17px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: rgba(4, 20, 38, .55);
+  color: var(--muted); font-size: 13.5px; line-height: 1.95;
+  min-height: 92px;
+}
+.anatomy__desc strong{ color: var(--cyan); font-weight: 700; }
+
+@media (max-width: 720px){
+  .anatomy__grid{ grid-template-columns: 1fr; }
+  .anatomy__stage{ max-width: 340px; margin-inline: auto; width: 100%; }
+}
+
+/* =========================================================
+   القياسات المنشورة
+   ========================================================= */
+.metrics{ margin: 0; display: flex; flex-direction: column; }
+.metrics__row{
+  display: flex; flex-wrap: wrap; gap: 6px 16px;
+  justify-content: space-between; align-items: baseline;
+  padding: 11px 0; border-bottom: 1px solid var(--line);
+}
+.metrics__row:last-of-type{ border-bottom: 0; }
+.metrics__row dt{ color: var(--muted); font-size: 13.5px; }
+.metrics__row dd{ margin: 0; color: var(--ink-soft); font-size: 13.5px; text-align: end; }
+.metrics__note{
+  margin-top: 14px; padding-top: 13px; border-top: 1px dashed var(--line);
+  font-size: 12px; color: var(--muted-dim); line-height: 1.8;
+}
+
+/* =========================================================
+   صبغة جرام والتصنيف
+   ========================================================= */
+.gram-card{ display: flex; flex-direction: column; align-items: flex-start; gap: 11px; }
+.gram-card__note{ font-size: 13px; color: var(--muted); line-height: 1.9; }
+.gram-card__link{ font-size: 13px; color: var(--cyan); }
+.gram-card__link:hover{ text-decoration: underline; }
+
+.datalist--taxonomy dd{ font-size: 12.5px; line-height: 1.6; }
+
+/* =========================================================
+   المصادر
+   ========================================================= */
+.sources__lead{ font-size: 13px; color: var(--muted); margin-bottom: 16px; line-height: 1.8; }
+.sources__list{ list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.sources__item{
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 11px 13px; border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  transition: background var(--t-fast), border-color var(--t-fast);
+}
+.sources__item:hover{ background: rgba(18, 55, 82, .4); border-color: var(--line); }
+.sources__link{
+  display: inline-flex; align-items: center; gap: 8px;
+  color: var(--cyan); font-size: 14px; font-weight: 600; line-height: 1.55;
+}
+.sources__link svg{ width: 14px; height: 14px; flex-shrink: 0; opacity: .75; }
+.sources__link:hover{ text-decoration: underline; }
+.sources__link--plain{ color: var(--ink-soft); font-weight: 600; }
+.sources__publisher{ font-size: 12px; color: var(--muted-dim); }
+
+/* =========================================================
+   المجهر — برج العدسات والقراءات البصرية
+   ========================================================= */
+.turret{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.turret__lens{
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 10px 6px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  background: rgba(5, 23, 41, .55);
+  color: var(--muted);
+  cursor: pointer;
+  transition: all var(--t-fast);
+}
+.turret__lens:hover{ border-color: var(--line-strong); background: rgba(18, 55, 82, .6); color: var(--ink); }
+.turret__lens.is-active{
+  border-color: transparent; color: #02111f;
+  background: linear-gradient(135deg, var(--cyan-bright), var(--blue-soft));
+}
+.turret__power{ font-size: 14px; font-weight: 700; }
+.turret__na{ font-size: 9.5px; opacity: .8; letter-spacing: .02em; }
+
+.optics{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  gap: 8px;
+  margin-top: 18px;
+}
+.optics__cell{
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 12px 13px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: var(--glass);
+}
+.optics__cell.is-warn{ border-color: rgba(255, 200, 97, .42); background: rgba(50, 36, 8, .38); }
+.optics__label{ font-size: 11px; color: var(--muted-dim); }
+.optics__value{ font-size: 16px; font-weight: 800; color: #dff5ff; line-height: 1.2; }
+.optics__sub{ font-size: 10.5px; color: var(--muted-dim); }
+
+/* تنبيه داخل الحقل */
+.scope__alert{
+  position: absolute; inset-block-start: 50%; inset-inline: 8%;
+  transform: translateY(-50%);
+  margin-inline: auto; max-width: 84%;
+  padding: 13px 18px; border-radius: var(--r-md);
+  font-size: 12.5px; line-height: 1.85; text-align: center;
+  pointer-events: none; backdrop-filter: blur(10px);
+}
+.scope__alert--warn{
+  background: rgba(50, 36, 8, .88); color: #ffdca3;
+  border: 1px solid rgba(255, 200, 97, .5);
+}
+.scope__alert--danger{
+  background: rgba(58, 12, 22, .9); color: #ffc9d1;
+  border: 1px solid rgba(255, 107, 129, .5);
+}
+
+.field__hint.is-warn{ color: var(--warn); }
+
+/* أسماء الأجزاء فوق العيّنة */
+.scope__labels{
+  position: absolute; inset: 0; z-index: 4;
+  display: grid; place-items: center;
+  pointer-events: none;
+}
+.scope__label-anchor{ position: relative; }
+.scope__label{
+  position: absolute; transform: translate(-50%, -50%);
+  display: flex; align-items: center; gap: 6px;
+  white-space: nowrap;
+}
+.scope__label-dot{
+  width: 19px; height: 19px; flex-shrink: 0;
+  display: grid; place-items: center; border-radius: 50%;
+  background: #02111f; color: #7fe0ff;
+  border: 1px solid #7fe0ff;
+  font-size: 10px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.scope__label-text{
+  font-size: 10.5px; font-weight: 600;
+  color: #eaf9ff; background: rgba(2, 17, 31, .88);
+  padding: 3px 8px; border-radius: var(--r-pill);
+  border: 1px solid rgba(127, 224, 255, .35);
+}
+
+@media (max-width: 560px){
+  .turret{ grid-template-columns: repeat(2, 1fr); }
+  .scope__label-text{ display: none; }
+}
+
+/* ---- قسم الـ3D: القياسات والمصادر ---- */
+.lab3d__specs{ margin: 0; display: flex; flex-direction: column; }
+.lab3d__spec{
+  display: flex; flex-wrap: wrap; gap: 4px 12px;
+  justify-content: space-between; align-items: baseline;
+  padding: 8px 0; border-bottom: 1px solid var(--line);
+}
+.lab3d__spec:last-child{ border-bottom: 0; }
+.lab3d__spec dt{ font-size: 12.5px; color: var(--muted-dim); }
+.lab3d__spec dd{ margin: 0; font-size: 12.5px; color: var(--ink-soft); text-align: end; }
+
+.lab3d__sources{ list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.lab3d__source{
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 12.5px; color: var(--cyan); line-height: 1.6;
+}
+.lab3d__source svg{ width: 13px; height: 13px; flex-shrink: 0; opacity: .75; }
+.lab3d__source:hover{ text-decoration: underline; }
+
+.lab3d__picker{ grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }

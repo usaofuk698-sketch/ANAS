@@ -5,6 +5,10 @@
                     1 نانومتر (nm) = 0.001 ميكرومتر
    ========================================================= */
 
+import { DETAILS, GRAM_BEHAVIOUR } from './specimen-details.js';
+
+export { GRAM_BEHAVIOUR };
+
 export const CATEGORIES = [
   { key: 'all',      label: 'الكل',        icon: '🔬' },
   { key: 'bacteria', label: 'بكتيريا',      icon: '🦠' },
@@ -23,7 +27,7 @@ export const RISK_LEVELS = {
   high:     { label: 'خطورة عالية',  badge: 'danger'},
 };
 
-export const SPECIMENS = [
+const BASE_SPECIMENS = [
   /* ----------------------- بكتيريا ----------------------- */
   {
     id: 'e-coli',
@@ -466,6 +470,22 @@ export const SPECIMENS = [
     },
   },
 ];
+
+/* ---------------------------------------------------------
+   الدمج مع الطبقة العلمية التفصيلية
+   (js/data/specimen-details.js يحمل التصنيف والقياسات
+    والأجزاء التشريحية والمصادر، وقد يصحّح قيمة أساسية)
+   --------------------------------------------------------- */
+
+export const SPECIMENS = BASE_SPECIMENS.map((specimen) => ({
+  gram: null,
+  taxonomy: null,
+  metrics: [],
+  anatomy: [],
+  sources: [],
+  ...specimen,
+  ...(DETAILS[specimen.id] ?? {}),
+}));
 
 /* ---------------------------------------------------------
    دوال مساعدة
