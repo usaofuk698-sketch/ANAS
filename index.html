@@ -1,14 +1,136 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl" data-theme="dark">
+<html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="ANAS — ANalysis & Advanced Sciences" />
-  <title>ANAS | منصة التحليل والعلوم المتقدمة</title>
-  <link rel="stylesheet" href="styles.css" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#020914" />
+<title>ANAS | منصة التحليل والعلوم المتقدمة</title>
+
+<meta name="description" content="منصة ANAS العلمية: مكتبة كائنات مجهرية، مجهر افتراضي تفاعلي، نماذج ثلاثية الأبعاد، ومساعد ذكي — تجربة بصرية سينمائية لاستكشاف العالم المجهري." />
+<meta name="author" content="ANAS — ANalysis & Advanced Sciences" />
+
+<meta property="og:type" content="website" />
+<meta property="og:locale" content="ar_AR" />
+<meta property="og:title" content="ANAS | منصة التحليل والعلوم المتقدمة" />
+<meta property="og:description" content="استكشف العالم غير المرئي: مكتبة علمية، مجهر افتراضي، نماذج ثلاثية الأبعاد، ومساعد ذكي." />
+<meta property="og:image" content="assets/og-cover.jpg" />
+<meta name="twitter:card" content="summary_large_image" />
+
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="assets/favicon.svg" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Inter:wght@400;600;800&display=swap" />
+
+<link rel="preload" as="image" href="assets/cinematic-bg.webp" imagesrcset="assets/cinematic-bg-800.webp 800w, assets/cinematic-bg-1280.webp 1280w, assets/cinematic-bg.webp 1672w" />
+
+<link rel="stylesheet" href="styles/base.css" />
+<link rel="stylesheet" href="styles/components.css" />
+<link rel="stylesheet" href="styles/views.css" />
 </head>
 <body>
-  <div id="app"></div>
-  <script src="app.js"></script>
+
+<a class="skip-link" href="#main">تخطَّ إلى المحتوى الرئيسي</a>
+
+<!-- ============ الخلفية السينمائية (ثابتة خلف كل الصفحات) ============ -->
+<div class="cinema" id="cinema" aria-hidden="true">
+  <div class="cinema__layer cinema__layer--base"></div>
+  <div class="cinema__layer cinema__layer--mid"></div>
+  <div class="cinema__layer cinema__layer--front"></div>
+  <div class="cinema__fog"></div>
+  <div class="cinema__vignette"></div>
+  <canvas class="cinema__particles" id="particles"></canvas>
+  <div class="cinema__noise"></div>
+</div>
+
+<!-- ============ الشريط العلوي ============ -->
+<header class="topbar" id="topbar">
+  <div class="topbar__inner">
+    <a class="brand" href="#/" aria-label="ANAS — الصفحة الرئيسية">
+      <span class="brand__mark" aria-hidden="true">
+        <svg viewBox="0 0 64 64" fill="none">
+          <path d="M20 8c18 12 6 36 24 48M44 8C26 20 38 44 20 56" stroke="#8DE4FF" stroke-width="4" stroke-linecap="round"/>
+          <path d="M22 17h20M20 28h24M20 40h24M22 51h20" stroke="#B8F0FF" stroke-width="2.5" stroke-linecap="round" opacity=".8"/>
+        </svg>
+      </span>
+      <span class="brand__text">
+        <span class="brand__name">ANAS</span>
+        <span class="brand__sub">ANALYSIS &amp; ADVANCED SCIENCES</span>
+      </span>
+    </a>
+
+    <nav class="nav" id="nav" aria-label="التنقل الرئيسي">
+      <a class="nav__link" href="#/" data-route="/">الرئيسية</a>
+      <a class="nav__link" href="#/library" data-route="/library">المكتبة العلمية</a>
+      <a class="nav__link" href="#/microscope" data-route="/microscope">المجهر الافتراضي</a>
+      <a class="nav__link" href="#/lab3d" data-route="/lab3d">قسم الـ3D</a>
+      <a class="nav__link" href="#/assistant" data-route="/assistant">المساعد الذكي</a>
+    </nav>
+
+    <div class="topbar__actions">
+      <button class="icon-btn" id="motionToggle" type="button" title="إيقاف/تشغيل الحركة" aria-label="إيقاف الحركة">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1.4" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1.4" fill="currentColor"/></svg>
+      </button>
+      <div id="authSlot" class="topbar__auth"></div>
+      <button class="icon-btn nav-burger" id="burger" type="button" aria-label="فتح القائمة" aria-expanded="false" aria-controls="nav">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- ============ منطقة العرض ============ -->
+<main id="main" class="view" tabindex="-1"></main>
+
+<!-- ============ التذييل ============ -->
+<footer class="footer" id="footer">
+  <div class="footer__inner">
+    <div class="footer__col footer__col--brand">
+      <div class="brand brand--footer">
+        <span class="brand__mark" aria-hidden="true">
+          <svg viewBox="0 0 64 64" fill="none">
+            <path d="M20 8c18 12 6 36 24 48M44 8C26 20 38 44 20 56" stroke="#8DE4FF" stroke-width="4" stroke-linecap="round"/>
+            <path d="M22 17h20M20 28h24M20 40h24M22 51h20" stroke="#B8F0FF" stroke-width="2.5" stroke-linecap="round" opacity=".8"/>
+          </svg>
+        </span>
+        <span class="brand__text">
+          <span class="brand__name">ANAS</span>
+          <span class="brand__sub">ANALYSIS &amp; ADVANCED SCIENCES</span>
+        </span>
+      </div>
+      <p class="footer__blurb">منصة علمية غامرة تجمع التحليل والعلوم المتقدمة داخل تجربة بصرية حديثة، مصممة لتجعل العالم المجهري قريباً من المستخدم.</p>
+    </div>
+    <nav class="footer__col" aria-label="روابط المنصة">
+      <h3 class="footer__title">المنصة</h3>
+      <a href="#/library">المكتبة العلمية</a>
+      <a href="#/microscope">المجهر الافتراضي</a>
+      <a href="#/lab3d">قسم الـ3D</a>
+      <a href="#/assistant">المساعد الذكي</a>
+    </nav>
+    <nav class="footer__col" aria-label="روابط الحساب">
+      <h3 class="footer__title">الحساب</h3>
+      <a href="#/login">تسجيل الدخول</a>
+      <a href="#/register">إنشاء حساب</a>
+      <a href="#/account">حسابي</a>
+    </nav>
+    <div class="footer__col">
+      <h3 class="footer__title">عن المنصة</h3>
+      <p class="footer__note">نسخة تجريبية تعمل بالكامل في المتصفح. البيانات محفوظة محلياً على جهازك فقط.</p>
+    </div>
+  </div>
+  <div class="footer__bar">
+    <span>© <span id="year"></span> ANAS — ANalysis &amp; Advanced Sciences</span>
+    <span class="footer__bar-sep" aria-hidden="true">•</span>
+    <span>صُمِّمت لاستكشاف ما لا تراه العين</span>
+  </div>
+</footer>
+
+<div id="toaster" class="toaster" role="status" aria-live="polite"></div>
+
+<script type="module" src="js/main.js"></script>
+<noscript>
+  <div class="noscript">هذه المنصة تحتاج إلى تفعيل JavaScript في المتصفح لتعمل.</div>
+</noscript>
 </body>
 </html>
